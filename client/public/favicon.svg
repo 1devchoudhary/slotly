@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="slotly" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="55%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#a855f7" />
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#slotly)" />
+  <rect x="0.75" y="0.75" width="62.5" height="62.5" rx="15.25" fill="none" stroke="#ffffff" stroke-opacity="0.25" stroke-width="1.5" />
+  <path
+    fill="#ffffff"
+    d="M32 13.5c.9 0 1.6.6 1.8 1.5l1.5 6.4a11 11 0 0 0 8.3 8.3l6.4 1.5c.9.2 1.5 1 1.5 1.8s-.6 1.6-1.5 1.8l-6.4 1.5a11 11 0 0 0-8.3 8.3l-1.5 6.4c-.2.9-1 1.5-1.8 1.5s-1.6-.6-1.8-1.5l-1.5-6.4a11 11 0 0 0-8.3-8.3l-6.4-1.5c-.9-.2-1.5-1-1.5-1.8s.6-1.6 1.5-1.8l6.4-1.5a11 11 0 0 0 8.3-8.3l1.5-6.4c.2-.9 1-1.5 1.8-1.5Z"
+  />
+</svg>

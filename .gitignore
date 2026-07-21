@@ -1,0 +1,26 @@
+# Local working notes — not part of the published project.
+*.local.md
+/notes/
+
+# Secrets — never commit. Each workspace ships a .env.example instead.
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+
+node_modules
+**/node_modules
+dist
+**/dist
+
+logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo

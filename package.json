@@ -1,0 +1,16 @@
+{
+  "name": "slotly",
+  "version": "1.0.0",
+  "description": "Slotly - AI Booking Assistant",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "seed": "npm run seed --workspace=server",
+    "reset": "npm run reset --workspace=server"
+  }
+}

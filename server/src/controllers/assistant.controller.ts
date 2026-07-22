@@ -13,13 +13,55 @@ import { Settings } from '../models/Settings';
 import { TimeOff } from '../models/TimeOff';
 import { getAvailableSlots } from '../lib/availability';
 import crypto from 'crypto';
-import { toZonedTime } from 'date-fns-tz';
+import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
 /** Overridable so a model can be swapped without a code change. */
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 /** Guards against a pathological tool loop burning the request budget. */
 const MAX_TOOL_TURNS = 6;
+
+/**
+ * Server-side blips worth retrying: the model is momentarily overloaded and a
+ * second attempt usually lands.
+ */
+const RETRYABLE = /\b(500|502|503|UNAVAILABLE)\b|overloaded|high demand/i;
+
+/**
+ * Quota exhaustion is deliberately NOT retried. A 429 is either a per-minute
+ * ceiling (needs a minute, not milliseconds) or a daily cap (never recovers
+ * today) — retrying only burns more quota and delays the reply.
+ */
+const QUOTA_EXHAUSTED = /\b(429|RESOURCE_EXHAUSTED)\b|exceeded your current quota/i;
+
+const MAX_ATTEMPTS = 3;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The Gemini free tier returns 503 under load often enough that a single
+ * failure would be visible to anyone trying the demo. Retry transient errors
+ * with exponential backoff and jitter; surface anything else immediately.
+ */
+async function generateWithRetry(
+  ai: GoogleGenAI,
+  params: Parameters<GoogleGenAI['models']['generateContent']>[0]
+) {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    try {
+      return await ai.models.generateContent(params);
+    } catch (error: any) {
+      lastError = error;
+      const message = error?.message ?? String(error);
+      if (!RETRYABLE.test(message) || attempt === MAX_ATTEMPTS - 1) throw error;
+      await sleep(400 * 2 ** attempt + Math.random() * 250);
+    }
+  }
+
+  throw lastError;
+}
 
 const DEFAULT_SETTINGS = {
   businessName: 'Northside Dental',
@@ -127,14 +169,22 @@ const handlers: Record<string, (args: ToolArgs) => Promise<string>> = {
 
       if (slots.length > 0) {
         const name = (staff.userId as any)?.name ?? 'Team member';
-        results.push(
-          `Staff: ${name} (ID: ${staff._id})\n` +
-            `Available slots (UTC): ${slots.map((s) => s.startAt.toISOString()).join(', ')}`
-        );
+        // Local times alongside UTC so the model doesn't have to do timezone
+        // arithmetic itself — that is where scheduling assistants go wrong.
+        const rendered = slots
+          .map(
+            (s) =>
+              `${formatInTimeZone(s.startAt, settings.timezone, 'HH:mm')} (${s.startAt.toISOString()})`
+          )
+          .join(', ');
+        results.push(`Staff: ${name} (ID: ${staff._id})\nOpen on ${date}: ${rendered}`);
       }
     }
 
-    return results.length > 0 ? results.join('\n\n') : 'No available slots on this date.';
+    // Echoing the date back keeps the model oriented across several tool turns.
+    return results.length > 0
+      ? results.join('\n\n')
+      : `No available slots on ${date}. Try a different date.`;
   },
 
   async create_booking(args) {
@@ -204,12 +254,29 @@ const handlers: Record<string, (args: ToolArgs) => Promise<string>> = {
 
 /* ------------------------------------------------------------------ */
 
-const SYSTEM_PROMPT = `You are the AI Booking Assistant for Northside Dental.
+/**
+ * Built per request rather than as a constant: without today's date the model
+ * cannot resolve "next Wednesday" or "tomorrow", so it guesses, finds nothing,
+ * and burns the tool loop. Relative dates are how people actually book.
+ */
+function buildSystemPrompt(settings: { businessName?: string; timezone: string }) {
+  const tz = settings.timezone;
+  const now = new Date();
+
+  return `You are the AI Booking Assistant for ${settings.businessName || 'Northside Dental'}.
+
+Today is ${formatInTimeZone(now, tz, 'EEEE, d MMMM yyyy')} and the local time is ${formatInTimeZone(now, tz, 'HH:mm')} (${tz}).
+Resolve every relative date the customer uses ("tomorrow", "next Wednesday", "this week")
+against that date before calling a tool, and pass dates as YYYY-MM-DD.
+
 - Never invent availability — always call check_availability first.
 - Never book without an explicit confirmation of the exact time plus name, email, and phone.
-- State times in the business timezone and name the zone.
-- If nothing is open, offer the nearest alternatives.
+- Slot times come back as UTC timestamps. Always convert them to ${tz} for the customer and
+  name the zone.
+- If a day has nothing open, say so and check the next sensible day rather than repeating
+  the same request. After two empty days, ask the customer what else would suit them.
 - Be concise and warm. Never reveal tool names, IDs, or internal errors to the user.`;
+}
 
 interface IncomingMessage {
   role: 'user' | 'assistant';
@@ -248,15 +315,16 @@ export const chatWithAssistant = async (req: Request, res: Response) => {
 
     const ai = new GoogleGenAI({ apiKey });
     const contents = toGeminiHistory(messages);
+    const systemInstruction = buildSystemPrompt(await resolveSettings());
 
     // Agentic loop: Gemini returns function calls, we execute them and feed the
     // results back until it produces prose (or we hit the turn ceiling).
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
-      const response = await ai.models.generateContent({
+      const response = await generateWithRetry(ai, {
         model: MODEL,
         contents,
         config: {
-          systemInstruction: SYSTEM_PROMPT,
+          systemInstruction,
           tools: [{ functionDeclarations: declarations }],
         },
       });
@@ -305,11 +373,31 @@ export const chatWithAssistant = async (req: Request, res: Response) => {
 
     // An unusable key is the single most common setup mistake — say so plainly
     // instead of returning an opaque 500.
-    if (/API key|API_KEY_INVALID|PERMISSION_DENIED|401|403/i.test(detail)) {
+    if (/API key|API_KEY_INVALID|PERMISSION_DENIED|\b401\b|\b403\b/i.test(detail)) {
       return res.status(200).json({
         reply:
           "The AI assistant's API key isn't valid, so I can't answer right now. The booking page still works — everything there is live.",
         configured: false,
+      });
+    }
+
+    // The demo runs on Gemini's free tier, so this is the failure a visitor is
+    // most likely to meet. Say something useful and point at the booking page,
+    // which never depends on the model.
+    if (QUOTA_EXHAUSTED.test(detail)) {
+      return res.status(200).json({
+        reply:
+          "I've hit my request limit for the moment — this demo runs on a free AI tier. Please try again in a minute, or use the booking page, which is always live.",
+        quotaExhausted: true,
+      });
+    }
+
+    // Retries already ran and the model is still overloaded.
+    if (RETRYABLE.test(detail)) {
+      return res.status(200).json({
+        reply:
+          "I'm getting a lot of requests right now and couldn't think that through. Give me a moment and ask again — or use the booking page, which is always available.",
+        retryable: true,
       });
     }
 

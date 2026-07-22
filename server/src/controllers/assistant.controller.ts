@@ -15,8 +15,12 @@ import { getAvailableSlots } from '../lib/availability';
 import crypto from 'crypto';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 
-/** Overridable so a model can be swapped without a code change. */
-const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+/**
+ * Read per request, not at import. A module-level constant would capture
+ * process.env before dotenv has run, silently pinning the default and ignoring
+ * GEMINI_MODEL entirely.
+ */
+const model = () => process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 /** Guards against a pathological tool loop burning the request budget. */
 const MAX_TOOL_TURNS = 6;
@@ -321,7 +325,7 @@ export const chatWithAssistant = async (req: Request, res: Response) => {
     // results back until it produces prose (or we hit the turn ceiling).
     for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
       const response = await generateWithRetry(ai, {
-        model: MODEL,
+        model: model(),
         contents,
         config: {
           systemInstruction,

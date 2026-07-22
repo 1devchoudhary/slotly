@@ -1,14 +1,15 @@
+// MUST be first. ES imports are evaluated before any statement in this file, so
+// calling dotenv.config() further down would leave every module below reading an
+// empty process.env at import time.
+import "dotenv/config";
+
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import authRoutes from "./routes/auth";
 import publicRoutes from "./routes/public";
 import assistantRoutes from "./routes/assistant";
 import adminRoutes from "./routes/admin";
 import cronRoutes from "./routes/cron";
-import { connectDB } from "./config/db";
-
-dotenv.config();
 
 const app = express();
 

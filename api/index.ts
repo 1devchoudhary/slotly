@@ -5,16 +5,26 @@ import { connectToDatabase } from '../server/src/config/db';
 /**
  * Vercel serverless entry point for the whole API.
  *
- * A catch-all (`[...slug]`) is used deliberately: Vercel's filesystem routing
- * would otherwise look for `api/auth/login.ts`, `api/admin/stats.ts` and so on.
- * Routing every `/api/*` request into this one function lets the existing
- * Express router stay the single source of truth — the same `app` that runs
- * locally and under test.
+ * Every `/api/*` request is rewritten into this single function (see
+ * vercel.json) so the Express router stays the single source of truth — the
+ * same `app` that runs locally and under test.
+ *
+ * An `api/[...slug].ts` catch-all was tried first and only matched
+ * single-segment paths: `/api/health` reached the function while
+ * `/api/admin/stats` returned a platform 404 without ever invoking it. An
+ * explicit rewrite is unambiguous.
  */
 export default async function handler(
   req: IncomingMessage,
   res: ServerResponse
 ) {
+  // Express matches on req.url, which must still carry the /api prefix its
+  // routers are mounted under. A rewrite preserves the original path; restore
+  // it defensively in case the platform hands over the rewritten one instead.
+  if (req.url && !req.url.startsWith('/api')) {
+    req.url = `/api${req.url === '/' ? '' : req.url}`;
+  }
+
   try {
     await connectToDatabase();
   } catch (error) {

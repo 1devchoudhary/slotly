@@ -351,15 +351,16 @@ export default function Dashboard() {
                   {statsQuery.isLoading ? (
                     <LoadingSkeleton className="mt-8 h-56 w-full" />
                   ) : (
-                    <div className="mt-8 flex h-56 items-end gap-3">
+                    <div className="mt-8 flex h-56 gap-3">
                       {stats?.week.map((day, i) => (
-                        <div
-                          key={day.date}
-                          className="group flex flex-1 flex-col items-center gap-3"
-                        >
-                          <div className="relative flex w-full flex-1 items-end">
+                        <div key={day.date} className="group flex flex-1 flex-col">
+                          {/* The bar is absolutely positioned so its percentage
+                              height resolves against this track. A percentage on
+                              a normal-flow child of a `flex-1` parent does not
+                              resolve reliably and collapses the chart to zero. */}
+                          <div className="relative min-h-0 flex-1">
                             <div
-                              className="relative w-full overflow-hidden rounded-t-lg bg-gradient-to-t from-brand-600/70 to-plum-500/90 transition-all duration-[900ms] ease-out group-hover:from-brand-500 group-hover:to-plum-400"
+                              className="absolute inset-x-0 bottom-0 overflow-hidden rounded-t-lg bg-gradient-to-t from-brand-600/70 to-plum-500/90 transition-[height] duration-[900ms] ease-out group-hover:from-brand-500 group-hover:to-plum-400"
                               style={{
                                 height: mounted ? `${Math.max(day.utilisationPct, 2)}%` : '0%',
                                 transitionDelay: `${i * 80}ms`,
@@ -367,11 +368,11 @@ export default function Dashboard() {
                             >
                               <span className="absolute inset-0 bg-gradient-to-t from-transparent to-white/20" />
                             </div>
-                            <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-lg border border-hairline bg-surface-raised px-2 py-1 text-[11px] font-semibold whitespace-nowrap opacity-0 shadow-lg transition-opacity duration-300 group-hover:opacity-100">
+                            <span className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 rounded-lg border border-hairline bg-surface-raised px-2 py-1 text-[11px] font-semibold whitespace-nowrap opacity-0 shadow-lg transition-opacity duration-300 group-hover:opacity-100">
                               {day.utilisationPct}% · {day.bookings} appts
                             </span>
                           </div>
-                          <span className="text-xs text-text-muted">
+                          <span className="mt-3 text-center text-xs text-text-muted">
                             {format(parseISO(day.date), 'EEE')}
                           </span>
                         </div>

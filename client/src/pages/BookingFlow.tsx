@@ -604,8 +604,7 @@ export default function BookingFlow() {
               <div className="flex items-start gap-3 border-t border-hairline bg-overlay-1 px-6 py-4">
                 <MessageSquare size={15} className="mt-0.5 shrink-0 text-brand-text" />
                 <p className="text-xs leading-relaxed text-text-muted">
-                  Prefer to just ask? The assistant in the corner can book this for you in one
-                  message.
+                  Prefer to ask? The assistant can book this in one message.
                 </p>
               </div>
             </PortalCard>

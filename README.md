@@ -1,6 +1,23 @@
-# Slotly - AI Booking Assistant
+# Slotly — AI Booking Assistant
 
-Slotly is a production-ready, monorepo-based booking platform featuring a Gemini-powered AI booking assistant.
+Slotly is a production-ready, monorepo-based booking platform featuring a Gemini-powered AI
+booking assistant. Patients ask for a time the way they'd ask a person, and the assistant
+turns it into a real, conflict-checked appointment.
+
+**[Live demo →](https://slotly-xi.vercel.app)**  ·  Staff login: `admin@slotly.demo` / `demo1234`
+
+![Slotly landing page](docs/screenshots/landing-dark.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/booking-light.png" alt="Four-step booking flow with live availability"></td>
+    <td width="50%"><img src="docs/screenshots/dashboard-dark.png" alt="Staff dashboard with server-computed metrics"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>Booking flow — live availability, light theme</em></td>
+    <td align="center"><em>Staff dashboard — every figure computed server-side</em></td>
+  </tr>
+</table>
 
 ## Architecture
 

@@ -22,17 +22,19 @@ const SCRIPT: Beat[] = [
 const BEAT_MS = [1500, 900, 1900, 2100, 900, 3600];
 
 export function HeroChat() {
-  const [step, setStep] = useState(0);
+  // Starts at 1, never returns to 0: a zero step renders an empty card, and
+  // this is the hero — a visitor (or a screenshot) landing on that frame sees
+  // what looks like a broken widget.
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     const timer = setTimeout(
-      () => setStep((s) => (s + 1) % (SCRIPT.length + 1)),
-      BEAT_MS[step] ?? 1400
+      () => setStep((s) => (s % SCRIPT.length) + 1),
+      BEAT_MS[step - 1] ?? 1400
     );
     return () => clearTimeout(timer);
   }, [step]);
 
-  // step === SCRIPT.length is the blank beat that resets the loop.
   const visible = SCRIPT.slice(0, step);
 
   return (
@@ -92,8 +94,9 @@ export function HeroChat() {
           </div>
         </div>
 
-        {/* Floating stat chips */}
-        <div className="animate-float glass-strong absolute -top-5 -left-8 hidden items-center gap-2.5 rounded-2xl px-4 py-3 shadow-xl sm:flex">
+        {/* Floating stat chips. Offset far enough to clear the card's header and
+            composer — at smaller offsets they sat on top of the title text. */}
+        <div className="animate-float glass-strong absolute -top-12 -left-12 hidden items-center gap-2.5 rounded-2xl px-4 py-3 shadow-xl xl:flex">
           <div className="grid h-8 w-8 place-items-center rounded-lg bg-status-success/15">
             <Check size={15} className="text-status-success" strokeWidth={3} />
           </div>
@@ -104,7 +107,7 @@ export function HeroChat() {
         </div>
 
         <div
-          className="animate-float glass-strong absolute -right-6 -bottom-6 hidden items-center gap-2.5 rounded-2xl px-4 py-3 shadow-xl sm:flex"
+          className="animate-float glass-strong absolute -right-12 -bottom-10 hidden items-center gap-2.5 rounded-2xl px-4 py-3 shadow-xl xl:flex"
           style={{ animationDelay: '-3.5s' }}
         >
           <div className="grid h-8 w-8 place-items-center rounded-lg bg-brand-500/20">
